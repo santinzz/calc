@@ -11,5 +11,6 @@ pub enum CalculatorError {
     DivisionByZero,
     VariableNotDefined(String),
     EvaluationUnknownOperator,
-    InvalidTokenUnary
+    InvalidTokenUnary,
+    TypeError(String)
 }

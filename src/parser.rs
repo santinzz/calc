@@ -104,6 +104,57 @@ impl Parser {
         Ok(node)
     }
 
+    pub fn parse_comparison(&mut self) -> Result<AstNode, CalculatorError> {
+        let mut node = self.parse_expression()?;
+
+        while let Token::Greater | Token::GreaterEq | Token::Less | Token::LessEq = self.peek_token() {
+            let op = self.next_token();
+            let rhs = self.parse_expression()?;
+
+            node = AstNode::BinaryOp {
+                op,
+                lhs: Box::new(node),
+                rhs: Box::new(rhs)
+            }
+        }
+
+        Ok(node)
+    }
+
+    pub fn parse_equalities(&mut self) -> Result<AstNode, CalculatorError> {
+        let mut node = self.parse_comparison()?;
+
+        while let Token::EqComparison | Token::Different = self.peek_token() {
+            let op = self.next_token();
+            let rhs = self.parse_comparison()?;
+
+            node = AstNode::BinaryOp {
+                op,
+                lhs: Box::new(node),
+                rhs: Box::new(rhs)
+            }
+        }
+
+        Ok(node)
+    }
+
+    pub fn parse_logical_and(&mut self) -> Result<AstNode, CalculatorError> {
+        let mut node = self.parse_equalities()?;
+
+        while let Token::LogicalAnd = self.peek_token() {
+            let op = self.next_token();
+            let rhs = self.parse_equalities()?;
+
+            node = AstNode::BinaryOp {
+                op,
+                lhs: Box::new(node),
+                rhs: Box::new(rhs)
+            }
+        }
+
+        Ok(node)
+    }
+
     pub fn parse_input(&mut self) -> Result<AstNode, CalculatorError> {
         let node: Option<AstNode> = None;
 
@@ -118,17 +169,17 @@ impl Parser {
             return match self.next_token() {
                 Token::Identifier(id) => match self.peek_token() {
                     Token::Eq => {
-                        self.consume_token(Token::Eq);
-                        let node = self.parse_expression()?;
+                        self.consume_token(Token::Eq)?;
+                        let node = self.parse_logical_and()?;
 
                         Ok(AstNode::AssignIdentifier {
                             name: id,
                             node_value: Box::new(node),
                         })
                     }
-                    Token::Plus | Token::Minus | Token::Slash | Token::Star => {
+                    _ => {
                         let op = self.next_token();
-                        let node = self.parse_expression()?;
+                        let node = self.parse_logical_and()?;
 
                         Ok(AstNode::BinaryOp {
                             op,
@@ -136,7 +187,6 @@ impl Parser {
                             rhs: Box::new(node),
                         })
                     }
-                    _ => panic!("Ureachable"),
                 },
                 _ => panic!("Invalid"),
             };
@@ -144,21 +194,23 @@ impl Parser {
 
         match node {
             Some(n) => Ok(n),
-            None => self.parse_expression(),
+            None => self.parse_logical_and(),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::lexer::Lexer;
+    use crate::{lexer::Lexer, parser::Parser};
 
     #[test]
     fn test_parse() {
-        let operation = String::from("4 + a");
+        let operation = String::from("3 == 3");
 
         let mut lexer = Lexer::new(&operation);
-        let tokens = lexer.tokenize();
-        println!("{:#?}", tokens);
+        let tokens = lexer.tokenize().unwrap();
+        let mut parser = Parser::new(tokens);
+        println!("Ast: {:#?}", parser.parse_input().unwrap())
+        
     }
 }

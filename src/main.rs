@@ -1,12 +1,13 @@
 use std::io::{self, Write};
 
-use crate::{errors::CalculatorError, evaluator::Evaluator, lexer::Lexer, parser::Parser};
+use crate::{errors::CalculatorError, evaluator::Evaluator, lexer::Lexer, output::Value, parser::Parser};
 
 mod ast;
 mod errors;
 mod evaluator;
 mod lexer;
 mod parser;
+mod output;
 
 fn main() {
     println!("***** Simple calculator *****");
@@ -65,12 +66,15 @@ fn main() {
         let result = match evaluator.evaluate(&parent_node) {
             Ok(result) => result,
             Err(_) => {
-                println!("error");
+                println!("errorp");
                 continue;
             }
         };
 
-        println!("{}", result);
+        match result {
+            Value::Number(n) => println!("{}", n),
+            Value::Boolean(b) => println!("{}", b),
+        }
     }
 }
 
@@ -92,7 +96,7 @@ mod test {
 
             let result = evaluator.evaluate(&result_node).unwrap();
 
-            assert_eq!(result, 19.3);
+            assert_eq!(result.as_number().unwrap(), 19.3);
         }
 
         {
@@ -107,7 +111,7 @@ mod test {
 
             let result = evaluator.evaluate(&result_node).unwrap();
 
-            assert_eq!(result, -2.0);
+            assert_eq!(result.as_number().unwrap(), -2.0);
         }
     }
 }

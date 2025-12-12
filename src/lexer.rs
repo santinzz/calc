@@ -1,3 +1,5 @@
+use std::path::MAIN_SEPARATOR;
+
 use crate::errors::CalculatorError;
 
 #[derive(PartialEq, Debug, Clone)]
@@ -12,6 +14,18 @@ pub enum Token {
     LParen,
     Identifier(String),
     Eq,
+    Greater,
+    GreaterEq,
+    Less,
+    LessEq,
+    EqComparison,
+    Different,
+    LogicalAnd,
+    LogicalOr,
+    LogicalNot,
+    BinaryAnd,
+    BinaryOr,
+    BinaryNot,
 }
 
 pub struct Lexer<'a> {
@@ -60,7 +74,58 @@ impl<'a> Lexer<'a> {
             '/' => Token::Slash,
             '(' => Token::LParen,
             ')' => Token::RParen,
-            '=' => Token::Eq,
+            '=' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '=' {
+                    self.next_char();
+                    Token::EqComparison
+                } else {
+                    Token::Eq
+                }
+            },
+            '>' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '=' {
+                    self.next_char();
+                    Token::GreaterEq
+                } else {
+                    Token::Greater
+                }
+            },
+
+            '<' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '=' {
+                    self.next_char();
+                    Token::LessEq
+                } else {
+                    Token::Less
+                }
+            }
+
+            '!' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '=' {
+                    self.next_char();
+                    Token::Different
+                } else {
+                    Token::LogicalNot
+                }
+            }
+
+            '&' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '&' {
+                    self.next_char();
+                    Token::LogicalAnd
+                } else {
+                    Token::BinaryAnd
+                }
+            }
+
+            '|' => {
+                if self.peek_char().is_some() && self.peek_char().unwrap() == '|' {
+                    self.next_char();
+                    Token::LogicalOr
+                } else {
+                    Token::BinaryOr
+                }
+            }
             '0'..='9' | '.' => self.lex_number(c)?,
             c => self.identifier(c)?,
         };
@@ -118,5 +183,19 @@ impl<'a> Lexer<'a> {
         }
 
         Ok(tokens)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::lexer::Lexer;
+
+    #[test]
+    fn test_boolean_operators_tokenizing() {
+        let operation = String::from("3 == 3");
+
+        let mut lexer = Lexer::new(&operation);
+
+        println!("Tokens genrated: {:#?}", lexer.tokenize().unwrap());
     }
 }
