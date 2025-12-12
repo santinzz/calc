@@ -42,6 +42,7 @@ impl Evaluator {
                     Token::LessEq => Value::Boolean(left_val.as_number()? <= right_val.as_number()?),
                     Token::LogicalAnd => Value::Boolean(left_val.as_bool()? && right_val.as_bool()?),
                     Token::EqComparison => Value::Boolean(left_val.as_bool()? == right_val.as_bool()?),
+                    Token::Different => Value::Boolean(left_val.as_number()? != right_val.as_number()?),
                     _ => return Err(CalculatorError::EvaluationUnknownOperator),
                 };
 
