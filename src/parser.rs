@@ -45,21 +45,22 @@ impl Parser {
             Token::LParen => {
                 let expr = self.parse_expression()?;
 
-                self.consume_token(Token::RParen);
+                self.consume_token(Token::RParen)?;
 
                 Ok(expr)
             }
+            Token::Plus => {
+                let expr = self.parse_factor()?;
+
+                Ok(AstNode::UnaryExpr { op: Token::Plus, node: Box::new(expr) })
+            }
             Token::Minus => {
-                let mut expr = self.parse_factor()?;
+                let expr = self.parse_factor()?;
 
-                match &mut expr {
-                    AstNode::Number(value) => {
-                        *value = -*value;
-                    }
-                    _ => {}
-                }
-
-                Ok(expr)
+                Ok(AstNode::UnaryExpr {
+                    op: Token::Minus,
+                    node: Box::new(expr),
+                })
             }
             Token::Identifier(identifier) => Ok(AstNode::ReadIdentifier(identifier)),
             t => Err(CalculatorError::UnexepctedToken {

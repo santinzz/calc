@@ -55,6 +55,16 @@ impl Evaluator {
                     None => Err(CalculatorError::VariableNotDefined(identifier.clone())),
                 }
             }
+
+            AstNode::UnaryExpr { op, node } => {
+                let node_val = self.evaluate(node)?;
+
+                match op {
+                    &Token::Plus => Ok(node_val),
+                    &Token::Minus => Ok(node_val * -1.0),
+                    _ => Err(CalculatorError::InvalidTokenUnary)
+                }
+            }
         }
     }
 }

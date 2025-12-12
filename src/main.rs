@@ -56,7 +56,7 @@ fn main() {
 
         let parent_node = match parser.parse_input() {
             Ok(node) => node,
-            Err(error) => {
+            Err(_) => {
                 println!("error");
                 continue;
             }
@@ -64,7 +64,7 @@ fn main() {
 
         let result = match evaluator.evaluate(&parent_node) {
             Ok(result) => result,
-            Err(error) => {
+            Err(_) => {
                 println!("error");
                 continue;
             }

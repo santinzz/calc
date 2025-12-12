@@ -4,6 +4,11 @@ use crate::lexer::Token;
 pub enum AstNode {
     Number(f64),
 
+    UnaryExpr {
+        op: Token,
+        node: Box<AstNode>
+    },
+
     BinaryOp {
         op: Token,
         lhs: Box<AstNode>,
