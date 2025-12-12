@@ -1,30 +1,29 @@
 use std::io::{self, Write};
 
-use crate::{
-    evaluator::Evaluator, lexer::{Lexer}, parser::Parser
-};
+use crate::{errors::CalculatorError, evaluator::Evaluator, lexer::Lexer, parser::Parser};
 
 mod ast;
+mod errors;
+mod evaluator;
 mod lexer;
 mod parser;
-mod evaluator;
 
 fn main() {
     println!("***** Simple calculator *****");
     println!("Enter your operations (type 'exit' to leave)");
-    
+
     let mut operation = String::from("");
 
     let mut evaluator = Evaluator::new();
-    
+
     loop {
         print!("> ");
         io::stdout().flush().expect("Failed to flush the output");
-        
+
         operation.clear();
 
         match io::stdin().read_line(&mut operation) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(_) => {
                 panic!("Error reading stdin");
             }
@@ -35,8 +34,41 @@ fn main() {
         }
 
         let mut lexer = Lexer::new(&operation);
-        let mut parser = Parser::new(lexer.tokenize());
-        let result = evaluator.evaluate(&parser.parse_input());
+
+        let tokens = lexer.tokenize();
+
+        let tokens = match tokens {
+            Ok(tokens) => tokens,
+            Err(error) => match error {
+                CalculatorError::InvalidCharacter(c) => {
+                    println!("Invalid character: {}", c);
+                    continue;
+                }
+                CalculatorError::InvalidNumberFormat => {
+                    println!("Invalid number format");
+                    continue;
+                }
+                _ => unreachable!(),
+            },
+        };
+
+        let mut parser = Parser::new(tokens);
+
+        let parent_node = match parser.parse_input() {
+            Ok(node) => node,
+            Err(error) => {
+                println!("error");
+                continue;
+            }
+        };
+
+        let result = match evaluator.evaluate(&parent_node) {
+            Ok(result) => result,
+            Err(error) => {
+                println!("error");
+                continue;
+            }
+        };
 
         println!("{}", result);
     }
@@ -54,11 +86,11 @@ mod test {
             let mut evaluator = Evaluator::new();
 
             let mut lexer = Lexer::new(&operation);
-            let mut parser = Parser::new(lexer.tokenize());
+            let mut parser = Parser::new(lexer.tokenize().unwrap());
 
-            let result_node = parser.parse_expression();
+            let result_node = parser.parse_expression().unwrap();
 
-            let result = evaluator.evaluate(&result_node);
+            let result = evaluator.evaluate(&result_node).unwrap();
 
             assert_eq!(result, 19.3);
         }
@@ -69,12 +101,11 @@ mod test {
 
             let mut lexer = Lexer::new(&operation);
             let tokens = lexer.tokenize();
-            let mut parser = Parser::new(tokens);
+            let mut parser = Parser::new(tokens.unwrap());
 
-            let result_node = parser.parse_expression();
+            let result_node = parser.parse_expression().unwrap();
 
-            let result = evaluator.evaluate(&result_node);
-            
+            let result = evaluator.evaluate(&result_node).unwrap();
 
             assert_eq!(result, -2.0);
         }

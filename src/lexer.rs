@@ -1,3 +1,5 @@
+use crate::errors::CalculatorError;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
     Number(f64),
@@ -43,15 +45,15 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Result<Token, CalculatorError> {
         self.skip_whitespace();
 
         let c = match self.next_char() {
             Some(c) => c,
-            None => return Token::Eof,
+            None => return Ok(Token::Eof),
         };
 
-        match c {
+        let token = match c {
             '+' => Token::Plus,
             '-' => Token::Minus,
             '*' => Token::Star,
@@ -59,14 +61,16 @@ impl<'a> Lexer<'a> {
             '(' => Token::LParen,
             ')' => Token::RParen,
             '=' => Token::Eq,
-            '0'..='9' | '.' => self.lex_number(c),
-            c => self.identifier(c),
-        }
+            '0'..='9' | '.' => self.lex_number(c)?,
+            c => self.identifier(c)?,
+        };
+
+        Ok(token)
     }
 
-    pub fn identifier(&mut self, initial_char: char) -> Token {
+    pub fn identifier(&mut self, initial_char: char) -> Result<Token, CalculatorError> {
         if !initial_char.is_alphanumeric() && initial_char != '_' {
-            panic!("Invalid character encountered");
+            return Err(CalculatorError::InvalidCharacter(initial_char));
         }
 
         let mut identifier_str = String::from(initial_char);
@@ -80,10 +84,10 @@ impl<'a> Lexer<'a> {
             }
         }
 
-        Token::Identifier(identifier_str)
+        Ok(Token::Identifier(identifier_str))
     }
 
-    pub fn lex_number(&mut self, inital_char: char) -> Token {
+    pub fn lex_number(&mut self, inital_char: char) -> Result<Token, CalculatorError> {
         let mut num_str = String::from(inital_char);
 
         while let Some(c) = self.peek_char() {
@@ -96,15 +100,15 @@ impl<'a> Lexer<'a> {
         }
 
         match num_str.parse::<f64>() {
-            Ok(val) => Token::Number(val),
-            Err(_) => panic!("Invalid number format: {}", num_str),
+            Ok(val) => Ok(Token::Number(val)),
+            Err(_) => Err(CalculatorError::InvalidNumberFormat),
         }
     }
 
-    pub fn tokenize(&mut self) -> Vec<Token> {
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, CalculatorError> {
         let mut tokens = Vec::new();
         loop {
-            let token = self.next_token();
+            let token = self.next_token()?;
 
             if token == Token::Eof {
                 tokens.push(token);
@@ -113,36 +117,6 @@ impl<'a> Lexer<'a> {
             tokens.push(token);
         }
 
-        tokens
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{evaluator::Evaluator, lexer::Lexer, parser::Parser};
-
-    #[test]
-    fn test_identifier_tokenizing() {
-        let mut eval = Evaluator::new();
-
-        {
-            let input = String::from("ast = 5");
-            let mut lexer = Lexer::new(&input);
-            let mut parser = Parser::new(lexer.tokenize());
-
-            let result = eval.evaluate(&parser.parse_input());
-
-            println!("{}", result)
-        }
-
-        {
-            let input = String::from("5 + ast");
-            let mut lexer = Lexer::new(&input);
-            let mut parser = Parser::new(lexer.tokenize());
-
-            let result = eval.evaluate(&parser.parse_input());
-
-            println!("{}", result)
-        }
+        Ok(tokens)
     }
 }

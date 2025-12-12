@@ -1,7 +1,8 @@
 use core::panic;
 
-use crate::lexer::Token;
 use crate::ast::AstNode;
+use crate::errors::CalculatorError;
+use crate::lexer::Token;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -20,12 +21,16 @@ impl Parser {
         &self.tokens[self.current_token]
     }
 
-    fn consume_token(&mut self, expected: Token) {
+    fn consume_token(&mut self, expected: Token) -> Result<(), CalculatorError> {
         let token = self.tokens[self.current_token].clone();
         if token != expected {
-            panic!("Expected token {:?}, but got {:?}", expected, token);
+            return Err(CalculatorError::UnexepctedToken {
+                expected: Some(expected),
+                got: token,
+            });
         }
         self.next_token();
+        Ok(())
     }
 
     fn next_token(&mut self) -> Token {
@@ -34,18 +39,18 @@ impl Parser {
         token
     }
 
-    fn parse_factor(&mut self) -> AstNode {
+    fn parse_factor(&mut self) -> Result<AstNode, CalculatorError> {
         match self.next_token() {
-            Token::Number(val) => AstNode::Number(val),
+            Token::Number(val) => Ok(AstNode::Number(val)),
             Token::LParen => {
-                let expr = self.parse_expression();
+                let expr = self.parse_expression()?;
 
                 self.consume_token(Token::RParen);
-                
-                expr
-            },
+
+                Ok(expr)
+            }
             Token::Minus => {
-                let mut expr = self.parse_factor();
+                let mut expr = self.parse_factor()?;
 
                 match &mut expr {
                     AstNode::Number(value) => {
@@ -54,97 +59,98 @@ impl Parser {
                     _ => {}
                 }
 
-                expr
-            },
-            Token::Identifier(identifier) => AstNode::ReadIdentifier(identifier),
-            t => panic!("Unexpected token in parse_factor {:?}", t),
+                Ok(expr)
+            }
+            Token::Identifier(identifier) => Ok(AstNode::ReadIdentifier(identifier)),
+            t => Err(CalculatorError::UnexepctedToken {
+                expected: None,
+                got: t,
+            }),
         }
     }
 
-    fn parse_term(&mut self) -> AstNode {
-        let mut node = self.parse_factor();
+    fn parse_term(&mut self) -> Result<AstNode, CalculatorError> {
+        let mut node = self.parse_factor()?;
 
         while let Token::Star | Token::Slash = self.peek_token() {
             let op = self.next_token();
-            let right = self.parse_factor();
+            let right = self.parse_factor()?;
 
             node = AstNode::BinaryOp {
                 op,
                 lhs: Box::new(node),
-                rhs: Box::new(right)
+                rhs: Box::new(right),
             }
         }
 
-        node
+        Ok(node)
     }
 
-    pub fn parse_expression(&mut self) -> AstNode {
-        let mut node = self.parse_term();
+    pub fn parse_expression(&mut self) -> Result<AstNode, CalculatorError> {
+        let mut node = self.parse_term()?;
 
         while let Token::Plus | Token::Minus = self.peek_token() {
             let op = self.next_token();
-            let rhs = self.parse_term();
+            let rhs = self.parse_term()?;
 
             node = AstNode::BinaryOp {
                 op,
                 lhs: Box::new(node),
-                rhs: Box::new(rhs)
+                rhs: Box::new(rhs),
             }
         }
 
-        node
+        Ok(node)
     }
 
-    pub fn parse_input(&mut self) -> AstNode {
+    pub fn parse_input(&mut self) -> Result<AstNode, CalculatorError> {
         let node: Option<AstNode> = None;
 
         if self.tokens.len() == 2 {
             return match self.next_token() {
-                Token::Identifier(id) => AstNode::ReadIdentifier(id),
-                _ => panic!("Incomplete statement")
-            }
+                Token::Identifier(id) => Ok(AstNode::ReadIdentifier(id)),
+                _ => panic!("Incomplete statement"),
+            };
         }
 
         if let Token::Identifier(..) = self.peek_token() {
             return match self.next_token() {
-                Token::Identifier(id) => {
-                    match self.peek_token() {
-                        Token::Eq => {
-                            self.consume_token(Token::Eq);
-                            let node = self.parse_expression();
+                Token::Identifier(id) => match self.peek_token() {
+                    Token::Eq => {
+                        self.consume_token(Token::Eq);
+                        let node = self.parse_expression()?;
 
-                            AstNode::AssignIdentifier {
-                                name: id,
-                                node_value: Box::new(node)
-                            }
-                        },
-                        Token::Plus | Token::Minus | Token::Slash | Token::Star => {
-                            let op = self.next_token();
-                            let node = self.parse_expression();
-
-                            AstNode::BinaryOp {
-                                op,
-                                lhs: Box::new(AstNode::ReadIdentifier(id)),
-                                rhs: Box::new(node)
-                            }
-                        },
-                        _ => panic!("Ureachable"),
+                        Ok(AstNode::AssignIdentifier {
+                            name: id,
+                            node_value: Box::new(node),
+                        })
                     }
-                }
-                _ => panic!("Invalid")
-            }
+                    Token::Plus | Token::Minus | Token::Slash | Token::Star => {
+                        let op = self.next_token();
+                        let node = self.parse_expression()?;
+
+                        Ok(AstNode::BinaryOp {
+                            op,
+                            lhs: Box::new(AstNode::ReadIdentifier(id)),
+                            rhs: Box::new(node),
+                        })
+                    }
+                    _ => panic!("Ureachable"),
+                },
+                _ => panic!("Invalid"),
+            };
         }
 
         match node {
-            Some(n) => n,
-            None => self.parse_expression()
+            Some(n) => Ok(n),
+            None => self.parse_expression(),
         }
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::{lexer::Lexer};
+    use crate::lexer::Lexer;
 
     #[test]
     fn test_parse() {
